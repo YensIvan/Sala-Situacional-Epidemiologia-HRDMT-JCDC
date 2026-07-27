@@ -16,10 +16,10 @@ st.sidebar.title("🏥 Menú Principal")
 opcion = st.sidebar.radio(
     "Seleccione una opción",
     [
+        "📊 Sala Situacional Dengue",
         "📂 Cargar Individual",
         "📂 Cargar Semana",
         "📂 Cargar Ubigeo",
-        "📊 Sala Situacional Dengue",
     ]
 )
 
