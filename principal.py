@@ -20,8 +20,6 @@ opcion = st.sidebar.radio(
         "📂 Cargar Semana",
         "📂 Cargar Ubigeo",
         "📊 Sala Situacional Dengue",
-        "📊 Sala Situacional Leptospirosis",
-        "📊 Sala Situacional Leishmaniasis",
     ]
 )
 
