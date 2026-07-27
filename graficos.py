@@ -332,34 +332,7 @@ def mostrar():
 
                 st.plotly_chart(fig1, width="stretch", key="grafico3")
             
-        # ====================================================
-        # =================== TABLA =============== 
-        # ====================================================
-        
-        # Filtrar solo casos confirmados
-        df_confirmados = df[df["TIPO_DX"] == "C"]
-
-        # Agrupar por ubigeo
-        df_resumen = (
-            df_confirmados
-            .groupby(["UBIGEO"])
-            .size()
-            .reset_index(name="TOTAL_CASOS")
-            .sort_values("TOTAL_CASOS", ascending=False)
-        )
-
-        # Mostrar tabla
-        st.subheader("Casos Confirmados por Departamento y Provincia")
-
-        st.dataframe(
-            df_resumen,
-            width="stretch",
-            hide_index=True
-        )
-
-
-
-
+    
 
         # Filtrar solo casos confirmados
         df_confirmados = df[df["TIPO_DX"] == "C"]
@@ -408,57 +381,6 @@ def mostrar():
             width="stretch",
             hide_index=True
         )
-
-
-
-        # Filtrar solo casos confirmados
-        # df_confirmados = df[df["TIPO_DX"] == "C"]
-
-        # Agrupar los casos por UBIGEO
-        df_resumen = (
-            df
-            .groupby("UBIGEO")
-            .size()
-            .reset_index(name="TOTAL_CASOS")
-        )
-
-        # Vincular con la tabla UBIGEO
-        df_resumen = df_resumen.merge(
-            df_ubigeo[
-                ["UBIGEO", "DEPARTAMENTO", "PROVINCIA", "DISTRITO"]
-            ],
-            on="UBIGEO",
-            how="left"
-        )
-
-        # Ordenar las columnas
-        df_resumen = df_resumen[
-            [
-                "UBIGEO",
-                "DEPARTAMENTO",
-                "PROVINCIA",
-                "DISTRITO",
-                "TOTAL_CASOS"
-            ]
-        ]
-
-        # Ordenar por cantidad de casos
-        df_resumen = df_resumen.sort_values(
-            "TOTAL_CASOS",
-            ascending=False
-        )
-
-        # Mostrar tabla
-        st.subheader(
-            "Casos Confirmados por Departamento, Provincia y Distrito"
-        )
-
-        st.dataframe(
-            df_resumen,
-            width="stretch",
-            hide_index=True
-        )
-        
 
 
         # Agrupar por UBIGEO y contar los tipos de diagnóstico
