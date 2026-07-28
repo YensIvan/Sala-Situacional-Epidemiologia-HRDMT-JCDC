@@ -118,6 +118,9 @@ def mostrar():
             "TOTAL": total_actual
         })
 
+        # Obtener la ultima semana de la base
+        ultima_semana = ultimo_anio = df["SEMANA"].max()
+
         # Convertir a DataFrame
         df_grafico = pd.DataFrame(datos)
 
@@ -125,7 +128,7 @@ def mostrar():
             df_grafico,
             x="ANO",
             y="TOTAL",
-            title="Nro de Casos confirmado en el HRDMT JCDC 2021-2026"
+            title="Nro de casos captados en el HRDMT-JCDC 2021-2026"
         )
 
         # Agregar etiqueta con fondo amarillo
@@ -148,7 +151,8 @@ def mostrar():
         fig.update_layout(
             xaxis_title="Anio",
             yaxis_title="Nro de casos",
-            height=500
+            height=500,
+            title=f"Nro de casos captados en el HRDMT-JCDC 2021-2026 SE {ultima_semana} "
             )
         
         st.plotly_chart(fig, width="stretch", key="grafico_anual")
@@ -171,7 +175,7 @@ def mostrar():
             x="SEMANA",
             y="CANTIDAD",
             text="CANTIDAD",
-            title="Nro de casos Confirmados por Semana Epidemiológica 2026"
+            title="Nro de casos por Semana Epidemiológica HRDMT-JCDC 2026"
         )
 
 
@@ -215,7 +219,7 @@ def mostrar():
                 "D": "#04910B", # Verde 
                 "P": "#E09303" # Naranja 
             }, 
-            title="Nro de casos notificados por Semana Epidemiológica 2026" 
+            title="Nro de casos notificados por Semana Epidemiológica HRDMT-JCDC 2026" 
         )
         
         fig.update_traces(
@@ -332,9 +336,11 @@ def mostrar():
 
                 st.plotly_chart(fig1, width="stretch", key="grafico3")
             
-    
 
-        # Filtrar solo casos confirmados
+        # ====================================================
+        # ======================== TABLA 1 ===================== 
+        # ====================================================
+
         df_confirmados = df[df["TIPO_DX"] == "C"]
 
         # Agrupar los casos por UBIGEO
@@ -373,7 +379,7 @@ def mostrar():
 
         # Mostrar tabla
         st.subheader(
-            "Casos Confirmados por Departamento, Provincia y Distrito"
+            "Nro de casos confirmados por Distrito HRDMT-JCDC 2026"
         )
 
         st.dataframe(
@@ -382,8 +388,11 @@ def mostrar():
             hide_index=True
         )
 
+        
+        # ======================================================
+        # ======================== TABLA 2 ===================== 
+        # ======================================================
 
-        # Agrupar por UBIGEO y contar los tipos de diagnóstico
         df_resumen = (
             df
             .groupby("UBIGEO")
@@ -427,13 +436,176 @@ def mostrar():
 
         # Mostrar tabla
         st.subheader(
-            "Casos por Departamento, Provincia y Distrito"
+            "Nro de casos captados por HRDMT JCDC por procedencia"
         )
 
         st.dataframe(
             df_resumen,
             width="stretch",
             hide_index=True
+        )
+
+
+
+        # Filtrar solo casos confirmados
+        df_confirmados = df[df["TIPO_DX"] == "C"]
+
+        # Tabla dinámica: una columna por diagnóstico
+        df_resumen = pd.pivot_table(
+            df_confirmados,
+            index="UBIGEO",
+            columns="DIAGNOSTIC",
+            values="TIPO_DX",
+            aggfunc="count",
+            fill_value=0
+        ).reset_index()
+
+        # Agregar columna TOTAL_CASOS
+        columnas_diagnosticos = [col for col in df_resumen.columns if col != "UBIGEO"]
+        df_resumen["TOTAL_CASOS"] = df_resumen[columnas_diagnosticos].sum(axis=1)
+
+        # Vincular con la tabla UBIGEO
+        df_resumen = df_resumen.merge(
+            df_ubigeo[
+                ["UBIGEO", "DEPARTAMENTO", "PROVINCIA", "DISTRITO"]
+            ],
+            on="UBIGEO",
+            how="left"
+        )
+
+        # Reordenar columnas
+        df_resumen = df_resumen[
+            [
+            "UBIGEO",
+            "DEPARTAMENTO",
+            "PROVINCIA",
+            "DISTRITO"
+            ] + columnas_diagnosticos + [
+            "TOTAL_CASOS"
+            ]
+        ]
+
+        # Ordenar por total de casos
+        df_resumen = df_resumen.sort_values(
+            "TOTAL_CASOS",
+            ascending=False
+        )
+
+        # Mostrar tabla
+        st.subheader("N° de casos confirmados por distrito y diagnóstico")
+
+        st.dataframe(
+            df_resumen,
+            width="stretch",
+            hide_index=True
+        )
+
+
+        # ======================================================
+        # ================ PIRAMIDE POBLACIONAL=================
+        # ======================================================
+
+        # ================ 1. AGRUPAR DATOS=================
+        import numpy as np
+
+        # Solo casos confirmados
+        df_confirmados = df[df["TIPO_DX"] == "C"].copy()
+
+        # Grupos de edad
+        # Límites de los grupos de edad
+        bins = [0,5,10,15,20,25,30,35,40,45,50,55,60,65,np.inf]
+
+        # Etiquetas
+        labels = [
+            "0-4",
+            "5-9",
+            "10-14",
+            "15-19",
+            "20-24",
+            "25-29",
+            "30-34",
+            "35-39",
+            "40-44",
+            "45-49",
+            "50-54",
+            "55-59",
+            "60-64",
+            ">=65"
+        ]
+
+        # Crear la variable de grupos de edad
+        df_confirmados["GRUPO_EDAD"] = pd.cut(
+            df_confirmados["EDAD"],
+            bins=bins,
+            labels=labels,
+            right=False,
+            include_lowest=True
+        )
+
+        # ========= 2. RESUMIR POR SEXO Y EDAD ========
+        tabla = (
+            df_confirmados
+            .groupby(["GRUPO_EDAD", "SEXO"], observed=False)
+            .size()
+            .unstack(fill_value=0)
+        )
+
+        tabla = tabla.rename(columns={
+            "M":"Masculino",
+            "F":"Femenino"
+        })
+
+        # Valores negativos para hombres
+        tabla["Masculino"] = -tabla["Masculino"]
+
+
+        # ================ 3. GRAFICAR=================
+        import plotly.graph_objects as go
+
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Bar(
+                y=tabla.index,
+                x=tabla["Masculino"],
+                orientation="h",
+                name="Masculino",
+                marker_color="#0a0dcf",
+                text=tabla["Masculino"].abs(),   # Mostrar valores positivos
+                textposition="outside"
+            )
+        )
+
+        fig.add_trace(
+            go.Bar(
+                y=tabla.index,
+                x=tabla["Femenino"],
+                orientation="h",
+                name="Femenino",
+                marker_color="#f31383",
+                text=tabla["Femenino"],
+                textposition="outside"
+            )
+        )
+
+        fig.update_layout(
+            title="Pirámide poblacional de casos confirmados",
+            barmode="relative",
+            height=650,
+            xaxis_title="Número de casos",
+            yaxis_title="Grupo de edad",
+            bargap=0.05,
+            template="plotly_white"
+        )
+
+        # Mostrar valores positivos en el eje X
+        fig.update_xaxes(
+            tickformat=","
+        )
+
+        st.plotly_chart(
+            fig,
+            width="stretch"
         )
 
         conexion.close()
