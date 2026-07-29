@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 def mostrar():
     
     st.set_page_config(
-        page_title="Gráficos Epidemiológicos",
+        page_title="Sala Situacional Dengue",
         page_icon="📊",
         layout="wide"
     )
@@ -47,6 +47,16 @@ def mostrar():
             PROVINCIA,
             DISTRITO
         FROM UBIGEO
+        """,
+        conexion
+    )
+
+    df_localidades = pd.read_sql_query(
+        """
+        SELECT
+            LOCALCOD,
+            LOCALIDAD
+        FROM LOCALIDAD
         """,
         conexion
     )
@@ -157,7 +167,7 @@ def mostrar():
         
         st.plotly_chart(fig, width="stretch", key="grafico_anual")
 
-         # ====================================================
+        # ====================================================
         # =========== GRAFICO DE COLUMNA POR SEMANA ==========
         # ====================================================
 
@@ -445,7 +455,9 @@ def mostrar():
             hide_index=True
         )
 
-
+        # ======================================================
+        # ======================== TABLA 3 ===================== 
+        # ======================================================
 
         # Filtrar solo casos confirmados
         df_confirmados = df[df["TIPO_DX"] == "C"]
@@ -607,5 +619,129 @@ def mostrar():
             fig,
             width="stretch"
         )
+
+
+        # ==========================
+        # MAPA DE CALOR
+        # ==========================
+
+        # Filtrar casos confirmados y descartados
+        df_mapa = df[df["TIPO_DX"].isin(["C"])].copy()
+
+       # Convertir coordenadas
+        df_mapa["LATITUD"] = pd.to_numeric(df_mapa["LATITUD"], errors="coerce")
+        df_mapa["LONGITUD"] = pd.to_numeric(df_mapa["LONGITUD"], errors="coerce")
+
+        # Eliminar coordenadas vacías
+        df_mapa = df_mapa.dropna(subset=["LATITUD", "LONGITUD"])
+
+        # Crear mapa de calor
+        fig = px.density_map(
+            df_mapa,
+            lat="LATITUD",
+            lon="LONGITUD",
+            radius=25,
+            zoom=10,
+            height=800,
+            title="Mapa de calor de casos confirmados",
+            color_continuous_scale="Turbo"
+        )
+
+        fig.update_layout(
+            template="plotly_white"
+        )
+
+        st.plotly_chart(fig, width="stretch")
+
+
+        # ==========================
+        # MAPA DE PUNTOS
+        # ==========================
+
+        # Filtrar casos confirmados y descartados
+        df_mapa = df[df["TIPO_DX"].isin(["C", "D"])].copy()
+
+        # Convertir coordenadas
+        df_mapa["LATITUD"] = pd.to_numeric(df_mapa["LATITUD"], errors="coerce")
+        df_mapa["LONGITUD"] = pd.to_numeric(df_mapa["LONGITUD"], errors="coerce")
+
+        # Eliminar coordenadas vacías
+        df_mapa = df_mapa.dropna(subset=["LATITUD", "LONGITUD"])
+
+        # Mapa de puntos
+        fig = px.scatter_map(
+            df_mapa,
+            lat="LATITUD",
+            lon="LONGITUD",
+            color="TIPO_DX",
+            color_discrete_map={
+                "C": "red",
+                "D": "blue"
+            },
+            hover_name="DNI",
+            hover_data={
+                "NOMBRES": True,
+                "DIAGNOSTIC": True,
+                "TIPO_DX": True,
+                "LATITUD": False,
+                "LONGITUD": False
+            },
+            zoom=10,
+            height=800,
+            title="Casos confirmados y descartados"
+        )
+
+        fig.update_layout(
+            template="plotly_white",
+            legend_title="Tipo de diagnóstico"
+        )
+
+        st.plotly_chart(fig, width="stretch")
+
+        # ==========================
+        # LOCALIDAD
+        # ==========================
+
+        consulta = """
+        SELECT
+            l.LOCALCOD,
+            l.LOCALIDAD,
+            COUNT(i.LOCALCOD) AS CASOS
+        FROM LOCALIDAD l
+        LEFT JOIN INDIVIDUAL i
+            ON l.LOCALCOD = i.LOCALCOD
+            AND i.TIPO_DX = 'C'
+            AND i.UBIGEO = 120301
+        GROUP BY l.LOCALCOD, l.LOCALIDAD
+        ORDER BY CASOS DESC;
+        """
+
+        df_localidad = pd.read_sql_query(consulta, conexion)
+
+        fig = px.bar(
+            df_localidad,
+            x="CASOS",
+            y="LOCALIDAD",
+            orientation="h",
+            text="CASOS",
+            title="Casos confirmados de dengue por localidad - Distrito de Chanchamayo"
+        )
+
+        fig.update_traces(
+            marker_color="#058B41",
+            textposition="outside"
+        )
+
+        fig.update_layout(
+            xaxis_title="Número de casos",
+            yaxis_title="Localidad",
+            height=max(700, len(df_localidad) * 22)
+        )
+
+        fig.update_yaxes(categoryorder="total ascending")
+
+        st.plotly_chart(fig, width="stretch")
+
+
 
         conexion.close()
